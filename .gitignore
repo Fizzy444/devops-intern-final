@@ -1,0 +1,14 @@
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.log
+*.pem
+*.key
+.env
+.terraform/
+.vagrant/
+node_modules/
