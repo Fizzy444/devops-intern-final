@@ -67,8 +67,53 @@ curl -G -s http://localhost:3100/loki/api/v1/query_range \
 
 Paste the observed output of the non-200 query here, and reference the screenshot:
 
-```
-PASTE_RESULT_HERE
+```json
+{
+  "status": "success",
+  "data": {
+    "resultType": "streams",
+    "result": [
+      {
+        "stream": {
+          "container": "web",
+          "job": "nginx-app",
+          "method": "GET",
+          "remote_addr": "172.17.0.1",
+          "request_time": "0.000",
+          "service": "nginx-app",
+          "status": "404",
+          "stream": "stdout",
+          "uri": "/does-not-exist"
+        },
+        "values": [
+          [
+            "1792768223927925776",
+            "{\"time\":\"2026-10-23T15:10:23+00:00\",\"remote_addr\":\"172.17.0.1\",\"method\":\"GET\",\"uri\":\"/does-not-exist\",\"status\":\"404\",\"bytes\":\"146\",\"request_time\":\"0.000\",\"user_agent\":\"curl/8.21.0\"}"
+          ]
+        ]
+      },
+      {
+        "stream": {
+          "container": "web",
+          "job": "nginx-app",
+          "method": "GET",
+          "remote_addr": "172.17.0.1",
+          "request_time": "0.000",
+          "service": "nginx-app",
+          "status": "404",
+          "stream": "stdout",
+          "uri": "/another-missing-page"
+        },
+        "values": [
+          [
+            "1792768223982626039",
+            "{\"time\":\"2026-10-23T15:10:23+00:00\",\"remote_addr\":\"172.17.0.1\",\"method\":\"GET\",\"uri\":\"/another-missing-page\",\"status\":\"404\",\"bytes\":\"146\",\"request_time\":\"0.000\",\"user_agent\":\"curl/8.21.0\"}"
+          ]
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ![Grafana Explore showing non-200 NGINX access logs](../docs/screenshots/grafana-explore.png)
