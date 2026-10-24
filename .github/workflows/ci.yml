@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: devops-intern-final
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck scripts/*.sh
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: app/Dockerfile
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        run: |
+          docker buildx build \
+            --load \
+            --build-arg BUILD_SHA=${{ github.sha }} \
+            --build-arg BUILD_DATE="$(date -u +%F)" \
+            --tag "$IMAGE_NAME:ci" \
+            app
+      - name: Report image size
+        run: docker images "$IMAGE_NAME:ci"
+      - name: Export image
+        run: docker save "$IMAGE_NAME:ci" -o image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - name: Load image
+        run: docker load -i image.tar
+      - name: Start container
+        run: docker run -d --name web -p 8080:8080 "$IMAGE_NAME:ci"
+      - name: Wait for readiness
+        run: |
+          for i in $(seq 1 30); do
+            state="$(docker inspect --format '{{.State.Health.Status}}' web)"
+            echo "attempt $i: $state"
+            if [ "$state" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs web
+          exit 1
+      - name: Health check /healthz
+        run: scripts/healthcheck.sh http://localhost:8080/healthz
+      - name: Health check /
+        run: scripts/healthcheck.sh http://localhost:8080/
+      - name: Container logs
+        if: always()
+        run: docker logs web
+
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - name: Load image
+        run: docker load -i image.tar
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag and push
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker tag "$IMAGE_NAME:ci" "$repo:${{ github.sha }}"
+          docker tag "$IMAGE_NAME:ci" "$repo:latest"
+          docker push "$repo:${{ github.sha }}"
+          docker push "$repo:latest"
