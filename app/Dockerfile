@@ -12,7 +12,9 @@ COPY index.html /usr/share/nginx/html/index.html
 
 RUN sed -i "s/__BUILD_SHA__/${BUILD_SHA}/g; s/__BUILD_DATE__/${BUILD_DATE}/g" \
         /usr/share/nginx/html/index.html /etc/nginx/nginx.conf \
-    && nginx -t
+    && nginx -t \
+    && rm -rf /tmp/* \
+    && chown -R nginx:nginx /tmp
 
 USER nginx
 
